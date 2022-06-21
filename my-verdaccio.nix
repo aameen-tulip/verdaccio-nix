@@ -1,8 +1,8 @@
 { nixpkgs            ? builtins.getFlake "nixpkgs"
 , system             ? builtins.currentSystem
-, pkgs               ? import nixpkgs.legacyPackages.${system}
+, pkgs               ? nixpkgs.legacyPackages.${system}
 , lib                ? nixpkgs.lib
-, verdaccioNode      ? import ../../../tools/nix/pkgs/development/node-packages/verdaccio { inherit pkgs; }
+, verdaccioNode      ? import ./. { inherit pkgs; }
 , verdaccioUnwrapped ? verdaccioNode.verdaccio
 , ak-nix             ? builtins.getFlake "github:aakropotkin/ak-nix/main"
 , docgen             ? ak-nix.docgen system

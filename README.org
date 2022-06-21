@@ -19,3 +19,32 @@ This flake also exposes a few extra outputs associated with =node2nix= generated
 For example =nodeShell= provides the dev shell for building Verdaccio, =nodeSources= exposes the
 fetchers and dependency metadata for Verdaccio's inputs, and =nodeDependencies= exposes the builders
 for those dependencies.
+
+** Example Config
+If you take a look at ~./my-verdaccio.nix~, you'll see an example of a simple configured Verdaccio, as
+well as a package which produces documentation for the available configuration options, and another
+which produces a standalone =config.yaml= file that can be used with any installation of Verdaccio.
+
+TODO: the docs and standalone config gen should be moved to the flake.
+
+** Usage
+For the time being, the recommended usage for this flake is to simply clone it, and edit
+~./my-verdaccio.nix~, which is sufficient for most use cases.
+While this approach isn't taking full advantage of Nix's flakes or module abstractions, it
+"does what I want" for the time being.
+
+Having edited your config, running ~nix {build,shell,run,profile install} .#verdaccioWrapped~ will
+produce a configured wrapper for you to use.
+
+I imagine that ~nix profile install .#verdaccioWrapped~ or ~nix run .#verdaccioWrapped~ are most
+likely the commands you'll want.
+
+** Configuration Docs
+You can read the full list of configuration options in ~./verdaccio-cfg.nix~, or just build all of
+
+~./my-verdaccio.nix~ to read the generated docs:
+#+BEGIN_SRC sh
+  $ nix build --impure -f ./my-verdaccio.nix;
+  $ ls ./result-1
+  options-docbook.xml  options.adoc  options.json  options.md  options.xml
+#+END_SRC
