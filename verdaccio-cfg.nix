@@ -1,10 +1,12 @@
-{ config, lib, pkgs, verdaccioUnwrapped, ... }:
-let
+{ config, lib, pkgs, verdaccioUnwrapped, ... }: let
   inherit (lib) mkOption;
   cfg = config.verdaccio;
   authEnum = lib.types.enum ["all" "authenticated" "anonymous"];
   settingsFormat = pkgs.formats.yaml {};
 in  {
+
+/* -------------------------------------------------------------------------- */
+
   options.verdaccio = {
     enable = lib.mkEnableOption "Verdaccio service";
 
@@ -226,6 +228,9 @@ in  {
     };  # End settings
   };  # End options.verdaccio
 
+
+/* -------------------------------------------------------------------------- */
+
   config = lib.mkIf cfg.enable {
     verdaccio = {
       configFile = settingsFormat.generate "config.yaml" cfg.settings;
@@ -251,5 +256,8 @@ in  {
       } );
     };
   };
+
+
+/* -------------------------------------------------------------------------- */
 
 }  # End Global

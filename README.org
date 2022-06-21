@@ -1,0 +1,21 @@
+#+TITLE: Verdaccio Nix
+
+A Nix flake for the Node.js Package Registry /Verdaccio/.
+
+** Outputs
+*** Unconfigured Server ={packages,apps}.verdaccio=
+This provides Verdaccio "as is" as if it had been installed globally by a common Node.js package manager.
+
+*** Configured Server ={packages,apps}.verdaccioWrapped= and =nixosModule.verdaccio=
+This flake also exposes a configured wrapper for Verdaccio, which may be customized using the module
+defined in ~./verdaccio-cfg.nix~.
+
+You can use your configuration settings to produce a standalone wrapped =verdaccio= executable,
+which points to a generated =config.yaml= file; and (TODO) in the future this same config can also be
+used to generate a service - using =systemd=, =plist=, etc depending on your system.
+
+*** Extras
+This flake also exposes a few extra outputs associated with =node2nix= generated expressions.
+For example =nodeShell= provides the dev shell for building Verdaccio, =nodeSources= exposes the
+fetchers and dependency metadata for Verdaccio's inputs, and =nodeDependencies= exposes the builders
+for those dependencies.
