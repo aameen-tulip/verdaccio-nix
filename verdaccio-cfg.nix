@@ -283,12 +283,6 @@ in  {
         name = "verdaccio-wrapped";
         inherit (pkgs.stdenv) system;
         PATH="${pkgs.coreutils}/bin";
-        buildPhase = ''
-          mkdir -p "$out/bin"
-          cat "$rewritePath" > "$out/bin/rewrite"
-          cat "$restorePath" > "$out/bin/restore"
-          chmod +x "$out/bin/rewrite" "$out/bin/restore"
-        '';
         rewrite = ''
           #! ${pkgs.bash}/bin/bash
           set -eu
@@ -327,6 +321,12 @@ in  {
             rm -f -- "$pjs"
             rmdir --ignore-fail-on-non-empty -p "''${pjs%/*}"
           done
+        '';
+        buildPhase = ''
+          mkdir -p "$out/bin"
+          cat "$rewritePath" > "$out/bin/rewrite"
+          cat "$restorePath" > "$out/bin/restore"
+          chmod +x "$out/bin/rewrite" "$out/bin/restore"
         '';
         passAsFile = ["rewrite" "restore" "buildPhase"];
         builder = "${pkgs.stdenv.shell}";

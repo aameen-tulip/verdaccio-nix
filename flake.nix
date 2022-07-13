@@ -7,55 +7,16 @@
     pkgsFor = nixpkgs.legacyPackages.${system};
     nodePackages = import ./default.nix { pkgs = pkgsFor; };
     inherit (nodePackages) sources shell nodeDependencies verdaccio;
-    # Used to evaluate the module as if it were a normal function.
-    # FIXME: I'm 99% sure there's new functions in `nixpkgs.lib' that do this
-    #        without the boilerplate.
-    #        I wrote this based on ~3 year old NixOS modules I wrote.
-    evalVerdaccioModule = {
-      config             ? {}
-    , pkgs               ? pkgsFor
-    , lib                ? nixpkgs.lib
-    , verdaccioUnwrapped ? nodePackages.verdaccio
-    }: lib.evalModules {
-      modules = [
-        ( import ./verdaccio-cfg.nix )
-        {
-          config._module.args =
-            { inherit config pkgs lib verdaccioUnwrapped; };
-          config.verdaccio.enable = true;
-          config.verdaccio.wrapper.enable = true;
-        }
-      ];
+    # This just makes a default wrapper available as an installable.
+    # NOTE: If you want to configure things, use `mkVerdaccioWrapper' directly.
+    verdaccioWrapped = nixpkgs.lib.makeOverridable self.mkVerdaccioWrapper {
+      pkgs = pkgsFor;
+      verdaccioUnwrapped = nodePackages.verdaccio;
     };
-    verdaccioWrapped = nixpkgs.lib.makeOverridable ( args:
-      ( evalVerdaccioModule args ).config.verdaccio.wrapper.package ) {};
     app = utils.lib.mkApp { drv = verdaccio; exePath = "/bin/verdaccio"; };
   in {
     packages = { default = verdaccio; inherit verdaccio verdaccioWrapped; };
     defaultPackage = verdaccio;
-
-    mkVerdaccioWrapper = {
-      config
-    , system             ? builtins.currentSystem
-    , pkgs               ? nixpkgs.legacyProjects.${system}
-    , lib                ? nixpkgs.lib
-    , verdaccioUnwrapped ? self.packages.${system}.verdaccio
-    }: let
-      em  = lib.evalModules {
-        modules = [
-          ( import ./verdaccio-cfg.nix )
-          {
-            config._module.args = {
-              inherit pkgs lib verdaccioUnwrapped;
-              config = if builtins.isAttrs config then config else
-                       ( import config );
-            };
-            config.verdaccio = { enable = true; wrapper.enable = true; };
-          }
-        ];
-      };
-      wrapped = em.config.verdaccio.wrapper.package;
-    in wrapped;
 
     nodeShell   = shell;
     nodeSources = sources;
@@ -70,6 +31,36 @@
 
     overlays = final: prev: { inherit verdaccio verdaccioWrapped; };
   } ) // {
+
+    # Used to evaluate the module as if it were a normal function.
+    # FIXME: I'm 99% sure there's new functions in `nixpkgs.lib' that do this
+    #        without the boilerplate.
+    #        I wrote this based on ~3 year old NixOS modules I wrote.
+    evalVerdaccioConfig = {
+      config             ? {}
+    , system             ? builtins.currentSystem
+    , pkgs               ? nixpkgs.legacyPackages.${system}
+    , lib                ? nixpkgs.lib
+    , verdaccioUnwrapped ? self.packages.${system}.verdaccio
+    }: let
+      em  = lib.evalModules {
+        modules = [
+          ( import ./verdaccio-cfg.nix )
+          {
+            config = {
+              _module.args = { inherit pkgs lib verdaccioUnwrapped; };
+              verdaccio = lib.recursiveUpdate {
+                enable = true;
+                wrapper.enable = true;
+              } config.verdaccio;
+            };
+          }
+        ];
+      };
+    in em.config.verdaccio;
+    mkVerdaccioWrapper = args:
+      ( self.evalVerdaccioConfig args ).wrapper.package;
+
     nixosModules.verdaccio = import ./verdaccio-cfg.nix;
     nixosModules.default   = import ./verdaccio-cfg.nix;
     nixosModule            = import ./verdaccio-cfg.nix;
