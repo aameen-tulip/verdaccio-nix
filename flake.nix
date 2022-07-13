@@ -12,7 +12,9 @@
     #        without the boilerplate.
     #        I wrote this based on ~3 year old NixOS modules I wrote.
     evalVerdaccioModule = {
-      config ? {}, pkgs ? pkgsFor, lib ? nixpkgs.lib
+      config             ? {}
+    , pkgs               ? pkgsFor
+    , lib                ? nixpkgs.lib
     , verdaccioUnwrapped ? nodePackages.verdaccio
     }: lib.evalModules {
       modules = [
