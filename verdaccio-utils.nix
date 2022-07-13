@@ -30,6 +30,7 @@
       backupPjs
       jq -SM '.publishConfig.registry|="${registryUrl}"' "$pjsBackup" > "$pjs"
     }
+    writePublishCfg
   '';
 
   restore = ''
