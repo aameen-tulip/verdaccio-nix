@@ -10,6 +10,20 @@ in  {
   options.verdaccio = {
     enable = lib.mkEnableOption "Verdaccio service";
 
+    utils = {
+      enable = lib.mkEnableOption "Dev utilities for configured Verdaccio";
+      # This cache dir should be wiped out when the verdaccio server launches.
+      cacheDir = mkOption {
+        description = "Path to stash cached files, such as file backups";
+        default = "/var/verdaccio/util/cache";
+        type = lib.types.path;
+      };
+      package = mkOption {
+        description = "Dev utilities for configured Verdaccio";
+        type = lib.types.package;
+      };
+    };
+
     wrapper =  {
       enable = lib.mkEnableOption "Verdaccio wrapper";
       package = mkOption {
@@ -240,22 +254,35 @@ in  {
         PATH="${pkgs.coreutils}/bin";
         wrapper = ''
           #! ${pkgs.stdenv.shell}
-          exec ${verdaccioUnwrapped}/bin/verdaccio                            \
-            -l ${cfg.listenHost}:${toString cfg.listenPort}                   \
-            ${if cfg.configFile != null then "-c ${cfg.configFile}" else ""}  \
-            ;
+          ${if cfg.utils.enable then ''
+              rm -rf -- ${cfg.utils.cacheDir}
+              trap 'es="$?"; ${cfg.utils.package}/bin/restore; exit "$es"'  \
+                   HUP TERM EXIT INT QUIT
+            '' else
+            "exec  \\"}
+          ${verdaccioUnwrapped}/bin/verdaccio  \
+            -l ${cfg.listenHost}:${toString cfg.listenPort}  \
+            ${if cfg.configFile != null then "-c ${cfg.configFile}" else ""}
         '';
         buildPhase = ''
-          mkdir -p $out/bin
-          cat $wrapperPath > $out/bin/verdaccio
-          chmod +x $out/bin/verdaccio
-        '';
+          mkdir -p "$out/bin"
+          cat "$wrapperPath" > "$out/bin/verdaccio"
+          chmod +x "$out/bin/verdaccio"
+        '' + ( lib.optionalString cfg.utils.enable ''
+          ln -s -- ${cfg.utils.package}/bin/rewrite "$out/bin/rewrite"
+          ln -s -- ${cfg.utils.package}/bin/restore "$out/bin/restore"
+        '' );
         passAsFile = ["wrapper" "buildPhase"];
         builder = "${pkgs.stdenv.shell}";
         args = ["-c" ". $buildPhasePath"];
       } );
     };
   };
+
+
+/* -------------------------------------------------------------------------- */
+
+  imports = [./verdaccio-utils.nix];
 
 
 /* -------------------------------------------------------------------------- */

@@ -34,6 +34,29 @@
     packages = { default = verdaccio; inherit verdaccio verdaccioWrapped; };
     defaultPackage = verdaccio;
 
+    mkVerdaccioWrapper = {
+      config
+    , system             ? builtins.currentSystem
+    , pkgs               ? nixpkgs.legacyProjects.${system}
+    , lib                ? nixpkgs.lib
+    , verdaccioUnwrapped ? self.packages.${system}.verdaccio
+    }: let
+      em  = lib.evalModules {
+        modules = [
+          ( import ./verdaccio-cfg.nix )
+          {
+            config._module.args = {
+              inherit pkgs lib verdaccioUnwrapped;
+              config = if builtins.isAttrs config then config else
+                       ( import config );
+            };
+            config.verdaccio = { enable = true; wrapper.enable = true; };
+          }
+        ];
+      };
+      wrapped = em.config.verdaccio.wrapper.package;
+    in wrapped;
+
     nodeShell   = shell;
     nodeSources = sources;
     inherit nodeDependencies;

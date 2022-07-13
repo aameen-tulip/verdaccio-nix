@@ -16,6 +16,7 @@ let
     config._module.args = { inherit pkgs lib verdaccioUnwrapped; };
     config.verdaccio = {
       enable = true;
+      utils.enable = true;
       wrapper.enable = true;
       settings.web.title = "Boy, Howdy!";
     };
