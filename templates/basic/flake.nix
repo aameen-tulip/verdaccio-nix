@@ -39,5 +39,4 @@
       default   = self.packages.${system}.verdaccio;
     } );
   };
-
 }
