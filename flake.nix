@@ -74,7 +74,7 @@
               verdaccio = lib.recursiveUpdate {
                 enable = true;
                 wrapper.enable = true;
-              } ( config.verdaccio or {} );
+              } ( config.verdaccio or config );
             };
           }
         ];
@@ -90,5 +90,13 @@
     nixosModules.verdaccio = import ./verdaccio-cfg.nix;
     nixosModules.default   = import ./verdaccio-cfg.nix;
     nixosModule            = import ./verdaccio-cfg.nix;
+
+    templates = {
+      default = self.templates.basic;
+      basic.path = ./templates/basic;
+      basic.description = "flake based Verdaccio config";
+      custom-cfg.path = ./templates/custom-cfg;
+      custom-cfg.description = "simple expression based Verdaccio wrapper";
+    };
   };
 }

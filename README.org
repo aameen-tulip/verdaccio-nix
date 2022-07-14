@@ -16,6 +16,22 @@ You can use your configuration settings to produce a standalone wrapped =verdacc
 which points to a generated =config.yaml= file; and (TODO) in the future this same config can also be
 used to generate a service - using =systemd=, =plist=, etc depending on your system.
 
+*** Templates
+I recommend using the =basic= template to set up a configured Verdaccio server.
+The =custom-cfg= template is a simpler more disposable expression which may be useful for CI.
+
+#+BEGIN_SRC sh
+mkdir -p ~/my-verdaccio;
+cd ~/my-verdaccio;
+git init;
+nix flake init -t github:aameen-tulip/verdaccio-nix;
+vim flake.nix;  # hack away
+nix flake lock;
+git add flake.nix flake.lock;  # Probably commit too
+nix build --impure;
+./result/bin/verdaccio;
+#+END_SRC
+
 *** Extras
 This flake also exposes a few extra outputs associated with =node2nix= generated expressions.
 For example =nodeShell= provides the dev shell for building Verdaccio, =nodeSources= exposes the
@@ -37,7 +53,7 @@ pattern may be used with any of the =evalVerdaccioConfig= family.
 /* my-verdaccio.nix */
 let
   verdaccio-nix = builtins.getFlake "github:aameen-tulip/verdaccio-nix";
-  config.verdaccio = {
+  config = {
     listenPort   = 420;
     # Extra CLI utilities/wrappers for writing local configs to use your
     # configured Verdaccio server.
@@ -49,24 +65,24 @@ let
       # defining uplinks explicitly.
       npmjs.url = "https://registry.npmjs.org";
       # Some private registry
-      my-org.url = "https://intranet.my-org.net/npm-registry"
+      my-org.url = "https://intranet.my-org.net/npm-registry";
     };
   };
-in verdaccio-nix.mkVerdaccioWrapper { inherit config; };
+in verdaccio-nix.mkVerdaccioWrapper { inherit config; }
 #+END_SRC
 
 This could be built with ~nix build --impure -f ./my-verdaccio.nix~.
 
 ** Usage
-If you want a customized configuration you'll want to follow the
-=my-verdaccio.nix=, style example seen above which is sufficient for most
-use cases.
-You could use a =flake.nix= file as well if you wanted something a bit more
-permanent ( see our handling of =verdaccioWrapped= in =flake.nix= for
-an example ).
+If you just want to run the default wrapped configuration you can just refer to
+our =verdaccioWrapped= installable here.
 
-If you just want to run the default wrapped configuration you can just
-refer to our =verdaccioWrapped= installable here.
+If you want a customized configuration you could follow a from scratch approach
+like =my-verdaccio.nix= seen above ( this is the =custom-cfg= template ).
+But the recommended usage is to use the =basic= template which is flake based and
+has some bells and whistles like documentation.
+Just run ~nix flake init -t github:aameen-tulip/verdaccio-nix~, edit your config,
+and ~nix build~ ( or however else you prefer to realise the derivation ).
 
 In either case, running ~nix {build,shell,run,profile install} --impure .#verdaccioWrapped~
 for a flake or ~nix {build,profile install} --impure -f ./my-verdaccio.nix~ for
@@ -85,5 +101,4 @@ generate documentation using the =configDocs-*= outputs.
   ...
 #+END_SRC
 
-** TODO
-*** Create tempalates
+The =basic= template has a more complete example.
