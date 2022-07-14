@@ -9,6 +9,8 @@ This provides Verdaccio "as is" as if it had been installed globally by a common
 *** Configured Server ={packages,apps}.verdaccioWrapped= and =nixosModule.verdaccio=
 This flake also exposes a configured wrapper for Verdaccio, which may be customized using the module
 defined in ~./verdaccio-cfg.nix~.
+The flake exposes a module eval funtion =evalVerdaccioConfig=, and a "convenience" wrapper which outputs
+the wrapper package directly =mkVerdaccioWrapper=.
 
 You can use your configuration settings to produce a standalone wrapped =verdaccio= executable,
 which points to a generated =config.yaml= file; and (TODO) in the future this same config can also be
@@ -20,31 +22,68 @@ For example =nodeShell= provides the dev shell for building Verdaccio, =nodeSour
 fetchers and dependency metadata for Verdaccio's inputs, and =nodeDependencies= exposes the builders
 for those dependencies.
 
-** Example Config
-If you take a look at ~./my-verdaccio.nix~, you'll see an example of a simple configured Verdaccio, as
-well as a package which produces documentation for the available configuration options, and another
-which produces a standalone =config.yaml= file that can be used with any installation of Verdaccio.
+Additionally you will find several =configDocs-*= outputs which produce the Nix Verdaccio Module's
+configuration documentation, =configDocs-all= contains a large collection of file formats which
+are not exposed globally.
 
-TODO: the docs and standalone config gen should be moved to the flake.
+Finally may also generate a Verdaccio YAML configuration file from a Nix config, which may be useful
+for debugging or running a verdaccio instance outside of Nix.
+
+** Example Config
+This example just builds a wrapped verdaccio server, but the same config
+pattern may be used with any of the =evalVerdaccioConfig= family.
+
+#+BEGIN_SRC nix
+/* my-verdaccio.nix */
+let
+  verdaccio-nix = builtins.getFlake "github:aameen-tulip/verdaccio-nix";
+  config.verdaccio = {
+    listenPort   = 420;
+    # Extra CLI utilities/wrappers for writing local configs to use your
+    # configured Verdaccio server.
+    # Thes are defined in `./verdaccio-cfg.nix'.
+    utils.enable = true;
+    # Fallback package registries
+    settings.uplinks = {
+      # This NPM entry is the default, but you must explicitly name it when
+      # defining uplinks explicitly.
+      npmjs.url = "https://registry.npmjs.org";
+      # Some private registry
+      my-org.url = "https://intranet.my-org.net/npm-registry"
+    };
+  };
+in verdaccio-nix.mkVerdaccioWrapper { inherit config; };
+#+END_SRC
+
+This could be built with ~nix build --impure -f ./my-verdaccio.nix~.
 
 ** Usage
-For the time being, the recommended usage for this flake is to simply clone it, and edit
-~./my-verdaccio.nix~, which is sufficient for most use cases.
-While this approach isn't taking full advantage of Nix's flakes or module abstractions, it
-"does what I want" for the time being.
+If you want a customized configuration you'll want to follow the
+=my-verdaccio.nix=, style example seen above which is sufficient for most
+use cases.
+You could use a =flake.nix= file as well if you wanted something a bit more
+permanent ( see our handling of =verdaccioWrapped= in =flake.nix= for
+an example ).
 
-Having edited your config, running ~nix {build,shell,run,profile install} .#verdaccioWrapped~ will
-produce a configured wrapper for you to use.
+If you just want to run the default wrapped configuration you can just
+refer to our =verdaccioWrapped= installable here.
+
+In either case, running ~nix {build,shell,run,profile install} --impure .#verdaccioWrapped~
+for a flake or ~nix {build,profile install} --impure -f ./my-verdaccio.nix~ for
+a non-flake will produce a configured wrapper for you to use.
 
 I imagine that ~nix profile install .#verdaccioWrapped~ or ~nix run .#verdaccioWrapped~ are most
-likely the commands you'll want.
+likely the commands you'll want in general.
 
 ** Configuration Docs
-You can read the full list of configuration options in ~./verdaccio-cfg.nix~, or just build all of
-
-~./my-verdaccio.nix~ to read the generated docs:
+You can read the full list of configuration options in ~./verdaccio-cfg.nix~, or
+generate documentation using the =configDocs-*= outputs.
 #+BEGIN_SRC sh
-  $ nix build --impure -f ./my-verdaccio.nix;
-  $ ls ./result-1
+  $ nix build --impure .#configDocs-all
+  $ ls ./result/
   options-docbook.xml  options.adoc  options.json  options.md  options.xml
+  ...
 #+END_SRC
+
+** TODO
+*** Create tempalates

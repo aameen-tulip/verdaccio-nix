@@ -62,8 +62,8 @@
     , pkgs               ? nixpkgs.legacyPackages.${system}
     , lib                ? nixpkgs.lib
     , verdaccioUnwrapped ? self.packages.${system}.verdaccio
-    , withDocs           ? false
-    , docgen             ? import "${ak-nix}/pkgs/docgen" { inherit pkgs nixpkgs; }
+    , withDocs  ? false
+    , docgen    ? import "${ak-nix}/pkgs/docgen" { inherit pkgs nixpkgs; }
     }: let
       em  = lib.evalModules {
         modules = [
@@ -81,6 +81,8 @@
       };
       docs = docgen.generateDocsForOptions em.options;
     in em.config.verdaccio // ( lib.optionalAttrs withDocs { inherit docs; } );
+
+    mkVerdaccioYamlConfig = args: ( self.evalVerdaccioConfig args ).configFile;
 
     mkVerdaccioWrapper = args:
       ( self.evalVerdaccioConfig args ).wrapper.package;
