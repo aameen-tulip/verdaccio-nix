@@ -14,7 +14,7 @@ in  {
 
     utils = {
       enable = lib.mkEnableOption "Dev utilities for configured Verdaccio";
-      # This cache dir should be wiped out when the verdaccio server launches.
+      # This cache dir is wiped out when Verdaccio server exits.
       cacheDir = mkOption {
         description = "Path to stash cached files, such as file backups";
         default = "/var/verdaccio/util/cache";
@@ -307,9 +307,16 @@ in  {
           handleDirs
 
           ${if cfg.utils.enable then ''
-              rm -rf -- ${cfg.utils.cacheDir}
-              trap 'es="$?"; ${cfg.utils.package}/bin/restore; exit "$es"'  \
-                   HUP TERM EXIT INT QUIT
+              _rpr="Would you like to auto-restore backed up project files?"
+              read -n 1 -p "$_rpr (Y/n) " _doRestore
+              case "$_doRestore" in
+                [yY])
+                  trap 'es="$?"; ${cfg.utils.package}/bin/restore; exit "$es"' \
+                       HUP TERM EXIT INT QUIT
+                ;;
+                *) :; ;;
+              esac
+              echo ""
             '' else "exec  \\"}
           ${verdaccioUnwrapped}/bin/verdaccio  \
             -l ${cfg.listenHost}:${toString cfg.listenPort}  \
@@ -340,6 +347,10 @@ in  {
           pjs="$pdir/package.json"
           pjsBackup="${ucfg.cacheDir}/''${pjs#/}"
 
+          : "''${ID:=id}"
+          : "''${MKDIR:=mkdir}"
+          : "''${CHOWN:=chown}"
+
           ${handleDirs}
           handleDirs
 
@@ -348,7 +359,25 @@ in  {
             exit 1
           fi
           backupPjs() {
-            mkdir -p "${ucfg.cacheDir}/$pdir"
+            local _userGroup
+            $MKDIR -p "${ucfg.cacheDir}/$pdir" 2>/dev/null
+            if ! test -w "${ucfg.cacheDir}/$pdir"; then
+              _userGroup="$( $ID -un; ):$( $ID -gn; )"
+              {
+                echo ""
+                echo "Verdaccio server requires read/write permissions for the"
+                echo "following directory:"
+                printf '\t%s\n' ${ucfg.cacheDir}/$pdir;
+                echo ""
+                echo "We will request authorization to create/set perms."
+                echo "You may also setup these directories manually if desired."
+                echo "The following user/group will be used: $_userGroup"
+                echo ""
+              } >&2
+              $SUDO -kv
+              $SUDO $MKDIR -p "${ucfg.cacheDir}/$pdir"
+              $SUDO $CHOWN -R "" "${ucfg.cacheDir}"
+            fi
             if ! test -r "$pjsBackup"; then
               cp -pr --reflink=auto -- "$pjs" "$pjsBackup"
             fi
@@ -364,6 +393,8 @@ in  {
           #! ${pkgs.bash}/bin/bash
           set -eu
           PATH="''${PATH+$PATH:}${pkgs.findutils}/bin:${pkgs.coreutils}/bin"
+
+          : "''${SUDO:=sudo}"
 
           ${handleDirs}
           handleDirs
