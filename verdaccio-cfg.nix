@@ -308,7 +308,7 @@ in  {
 
           ${if cfg.utils.enable then ''
               _rpr="Would you like to auto-restore backed up project files?"
-              read -n 1 -p "$_rpr (Y/n) " _doRestore
+              read -n 1 -p "$_rpr (y/N) " _doRestore
               case "$_doRestore" in
                 [yY])
                   trap 'es="$?"; ${cfg.utils.package}/bin/restore; exit "$es"' \
