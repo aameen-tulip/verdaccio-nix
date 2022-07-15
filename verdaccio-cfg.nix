@@ -248,7 +248,51 @@ in  {
 /* -------------------------------------------------------------------------- */
 
   config = lib.mkIf cfg.enable {
-    verdaccio = {
+    verdaccio = let
+      # Ensure user has permissions for these dirs.
+      handleDirs = let
+        dirsL = [
+          ucfg.cacheDir
+          cfg.settings.storage
+          cfg.settings.plugins
+          ( dirOf cfg.settings.auth.htpasswd.file )
+        ];
+        dirs = builtins.concatStringsSep " " dirsL;
+      in ''
+        : "''${ID:=id}"
+        : "''${MKDIR:=mkdir}"
+        : "''${CHOWN:=chown}"
+        : "''${SUDO:=sudo}"
+        : "''${_handledDirs=}"
+        handleDirs() {
+          test -n "$_handledDirs" && return 0
+          local _doPrompt _userGroup
+          _doPrompt=
+          for d in ${dirs}; do test -w "$d" || _doPrompt=:; done
+          test -z "$_doPrompt" && return 0
+          _userGroup="$( $ID -un; ):$( $ID -gn; )"
+          {
+            echo ""
+            echo "Verdaccio server requires read/write permissions for the"
+            echo "following directories:"
+            printf '\t%s\n' ${dirs};
+            echo ""
+            echo "We will request authorization to create/set perms."
+            echo "You may also setup these directories manually if desired."
+            echo "The following user/group will be used: $_userGroup"
+            echo ""
+          } >&2
+          for d in ${dirs}; do
+            test -w "$d" && continue
+            set -v
+            $SUDO $MKDIR -p "$d"
+            $SUDO $CHOWN -R "$_userGroup" "$d"
+            set +v
+          done
+          _handledDirs=:
+        }
+      '';
+    in {
       configFile = settingsFormat.generate "config.yaml" cfg.settings;
 
       wrapper.package = lib.mkIf cfg.wrapper.enable ( derivation {
@@ -257,6 +301,10 @@ in  {
         PATH="${pkgs.coreutils}/bin";
         wrapper = ''
           #! ${pkgs.stdenv.shell}
+
+          ${handleDirs}
+          handleDirs
+
           ${if cfg.utils.enable then ''
               rm -rf -- ${cfg.utils.cacheDir}
               trap 'es="$?"; ${cfg.utils.package}/bin/restore; exit "$es"'  \
@@ -290,6 +338,10 @@ in  {
           pdir="''${1%/package.json}"
           pjs="$pdir/package.json"
           pjsBackup="${ucfg.cacheDir}/$pjs"
+
+          ${handleDirs}
+          handleDirs
+
           if ! test -r "$pjs"; then
             echo "Could not locate package.json for path $pdir" >&2
             exit 1
@@ -311,6 +363,10 @@ in  {
           #! ${pkgs.bash}/bin/bash
           set -eu
           PATH="''${PATH+$PATH:}${pkgs.findutils}/bin:${pkgs.coreutils}/bin"
+
+          ${handleDirs}
+          handleDirs
+
           if ! test -d ${ucfg.cacheDir}; then
             exit 0  # No cached package.json files exist. That was easy.
           fi
