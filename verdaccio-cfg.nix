@@ -282,6 +282,7 @@ in  {
             echo "The following user/group will be used: $_userGroup"
             echo ""
           } >&2
+          $SUDO -kv
           for d in ${dirs}; do
             test -w "$d" && continue
             set -v
@@ -335,9 +336,9 @@ in  {
           #! ${pkgs.bash}/bin/bash
           set -eu
           PATH="''${PATH+$PATH:}${pkgs.jq}/bin"
-          pdir="''${1%/package.json}"
+          pdir="$( realpath -s "''${1%/package.json}"; )"
           pjs="$pdir/package.json"
-          pjsBackup="${ucfg.cacheDir}/$pjs"
+          pjsBackup="${ucfg.cacheDir}/''${pjs#/}"
 
           ${handleDirs}
           handleDirs
@@ -375,7 +376,7 @@ in  {
             cp -pr --reflink=auto -- "$pjs" "/''${pjs#./}"
             echo "Restored: /''${pjs#./}"
             rm -f -- "$pjs"
-            rmdir --ignore-fail-on-non-empty -p "''${pjs%/*}"
+            rmdir --ignore-fail-on-non-empty -p "''${pjs%/*}" 2>/dev/null
           done
         '';
         buildPhase = ''
