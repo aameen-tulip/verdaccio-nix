@@ -2,7 +2,7 @@
   inherit (lib) mkOption;
   cfg = config.verdaccio;
   ucfg = cfg.utils;
-  authEnum = lib.types.enum ["all" "authenticated" "anonymous"];
+  authEnum = lib.types.enum ["$all" "$authenticated" "$anonymous"];
   settingsFormat = pkgs.formats.yaml {};
   registryUrl = "http://${cfg.listenHost}:${toString cfg.listenPort}/";
 in  {
@@ -156,7 +156,7 @@ in  {
 
           packages = mkOption {
             description = ''
-              Per-package permissions (all|authenticated|anonymous).
+              Per-package permissions ($all|$authenticated|$anonymous).
               Names may use glob patterns.
               Proxy names must be named in `config.verdacctio.settings.uplinks', which provides "npmjs" by default.
               Proxy may be set to "null", to force use of verdaccio, but it may not be omitted.
@@ -164,15 +164,15 @@ in  {
             default = {
               # A scoped package
               "@*/*" = {
-                access    = "all";
-                publish   = "authenticated";
-                unpublish = "authenticated";
+                access    = "$all";
+                publish   = "$authenticated";
+                unpublish = "$authenticated";
                 proxy     = "npmjs";
               };
               "**" = {
-                access    = "all";
-                publish   = "authenticated";
-                unpublish = "authenticated";
+                access    = "$all";
+                publish   = "$authenticated";
+                unpublish = "$authenticated";
                 proxy     = "npmjs";
               };
             };
