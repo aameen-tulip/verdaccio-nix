@@ -338,26 +338,53 @@ in  {
       utils.package = lib.mkIf ucfg.enable ( derivation {
         name = "verdaccio-wrapped";
         inherit (pkgs.stdenv) system;
-        PATH="${pkgs.coreutils}/bin";
+        PATH="${pkgs.coreutils}/bin:${pkgs.git}/bin";
         rewrite = ''
           #! ${pkgs.bash}/bin/bash
           set -eu
           PATH="''${PATH+$PATH:}${pkgs.jq}/bin"
-          pdir="$( realpath -s "''${1%/package.json}"; )"
-          pjs="$pdir/package.json"
-          pjsBackup="${ucfg.cacheDir}/''${pjs#/}"
 
           : "''${ID:=id}"
           : "''${MKDIR:=mkdir}"
           : "''${CHOWN:=chown}"
+          : "''${GIT:=git}"
+          : "''${WC:=wc}"
+          : "''${CKSUM:=cksum}"
+          : "''${CUT:=cut}"
+          : "''${REALPATH:=realpath}"
 
           ${handleDirs}
           handleDirs
 
-          if ! test -r "$pjs"; then
-            echo "Could not locate package.json for path $pdir" >&2
-            exit 1
-          fi
+          : "''${_rev:=}"
+          : "''${revTag:=}"
+          setRevTag() {
+            if ! test -n "''${revTag:+y}"; then
+              if $GIT status 1> /dev/null 2> /dev/null; then
+                _rev="$( $GIT rev-parse --short HEAD; )"
+                if test "$( $GIT status --short|$WC -l; )" -gt 0; then
+                  revTag="$( $GIT status --short|$CKSUM|$CUT -d' ' -f1; )"
+                  revTag="$_rev+$revTag"
+                else
+                  revTag="$_rev"
+                fi
+              else
+                revTag=local
+              fi
+            fi
+            echo "Using rev tag '$revTag' for versions" >&2
+          }
+
+          setPjs() {
+            pdir="$( $REALPATH -s "''${1%/package.json}"; )"
+            pjs="$pdir/package.json"
+            pjsBackup="${ucfg.cacheDir}/''${pjs#/}"
+            if ! test -r "$pjs"; then
+              echo "Could not locate package.json for path $pdir" >&2
+              exit 1
+            fi
+          }
+
           backupPjs() {
             local _userGroup
             $MKDIR -p "${ucfg.cacheDir}/$pdir" 2>/dev/null
@@ -382,12 +409,21 @@ in  {
               cp -pr --reflink=auto -- "$pjs" "$pjsBackup"
             fi
           }
+
           writePublishCfg() {
+            setPjs "$1"
             backupPjs
-            jq -SM '.publishConfig.registry|="${registryUrl}"' "$pjsBackup"  \
-                   > "$pjs"
+            jq -SM '
+              .publishConfig.registry|="${registryUrl}"|
+              .private|=false|
+              .version|=.+"-'"$revTag"'"
+            ' "$pjsBackup" > "$pjs"
           }
-          writePublishCfg
+
+          setRevTag
+          for p in "$@"; do
+            writePublishCfg "$p"
+          done
         '';
         restore = ''
           #! ${pkgs.bash}/bin/bash
