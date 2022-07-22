@@ -1,6 +1,26 @@
 { config, lib, pkgs, verdaccioUnwrapped, ... }: let
   inherit (lib) mkOption;
-  cfg = config.verdaccio;
+  cfg = let
+    raw = config.verdaccio;
+    rmTbUrlRedir = if raw.settings.experiments.tarball_url_redirect == null then
+      raw // { settings = raw.settings // {
+                 experiments = removeAttrs raw.settings.experiments
+                   ["tarball_url_redirect"];
+               };
+             }
+      else raw;
+    rmUserRateLimit = let
+      oneNull = rmTbUrlRedir // {
+        settings = rmTbUrlRedir.settings // {
+          userRateLimit = lib.filterAttrs ( _: v: v != null )
+                                          rmTbUrlRedir.settings.userRateLimit;
+        };
+      };
+      bothNull = if oneNull.settings.userRateLimit == {} then oneNull // {
+        settings = removeAttrs oneNull.settings ["userRateLimit"];
+      } else oneNull;
+    in bothNull;
+  in rmUserRateLimit;
   ucfg = cfg.utils;
   authEnum = lib.types.enum ["$all" "$authenticated" "$anonymous"];
   settingsFormat = pkgs.formats.yaml {};
@@ -113,18 +133,18 @@ in  {
                 "http://somedomain/favicon/ico" or "/path/favicon.ico"
               '';
             };
-            rateLimit = {
-              windowMs = mkOption {
-                description = "Refresh rate in milliseconds.";
-                default     = 1000;
-                type        = lib.types.ints.unsigned;
-              };
-              max = mkOption {
-                default = 1000;
-                type    = lib.types.ints.unsigned;
-              };
-            };
           };  # End web
+          userRateLimit = {
+            windowMs = mkOption {
+              description = "Refresh rate in milliseconds.";
+              default     = null;
+              type        = lib.types.nullOr lib.types.ints.unsigned;
+            };
+            max = mkOption {
+              default = null;
+              type    = lib.types.nullOr lib.types.ints.unsigned;
+            };
+          };
 
           auth.htpasswd = {
             file = mkOption {
@@ -135,20 +155,20 @@ in  {
               description = ''
                 Maximum amount of users allowed to register.
                 You can set this to -1 to disable registration.
-                You can set this to null for unlimited users ( default ).
+                You can set this to "+inf" for unlimited users ( default ).
               '';
-              default = null;
-              type = lib.types.nullOr (
+              default = "+inf";
+              type = lib.types.either (
                 lib.types.addCheck lib.types.int ( x: (-1) <= x ) // {
                   name = "unsignedOrNegativeOne";
                   description = "unsigned integer or -1, meaning >=-1";
-                } );
+                } ) ( lib.types.addCheck lib.types.string ( x: x == "+inf" ) );
             };  # End max_users
           };  # End auth.htpasswd
 
           uplinks = mkOption {
             description = "List of other known repositories to fetch from";
-            default     = { npmjs = { url = "https://registry.npmjs.org"; }; };
+            default     = { npmjs = { url = "https://registry.npmjs.org/"; }; };
             type = lib.types.attrsOf ( lib.types.submodule { options = {
               url = mkOption { type = lib.types.str; };
             }; } );
@@ -208,13 +228,13 @@ in  {
               options = {
                 token = mkOption {
                   description = "Support for http token command.";
-                  default     = false;
+                  default     = true;
                   type        = lib.types.bool;
                 };
                 bytesin_off = mkOption {
                   description = "disable writing body size to logs";
                   type        = lib.types.bool;
-                  default     = false;
+                  default     = true;
                 };
                 tarball_url_redirect = mkOption {
                   description = ''
