@@ -171,6 +171,14 @@ in  {
             default     = { npmjs = { url = "https://registry.npmjs.org/"; }; };
             type = lib.types.attrsOf ( lib.types.submodule { options = {
               url = mkOption { type = lib.types.str; };
+              auth = mkOption {
+                default = null;
+                type = lib.types.nullOr ( lib.types.submodule { options = {
+                  token_env = mkOption { type = lib.types.bool; };
+                  # Be careful, this is a field named type.
+                  type = mkOption { type = lib.types.str; };
+                }; } );
+              };
             }; } );
           };
 
